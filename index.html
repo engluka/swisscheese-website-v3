@@ -655,7 +655,7 @@ function freshState(fromLevel) {
 // ======================================================
 //  HOLES
 // ======================================================
-function baseHoleCount() { return 3 + state.level; }
+function baseHoleCount() { return Math.max(1, state.level); }
 
 function initHoles() {
   state.holes = [];
@@ -726,6 +726,27 @@ canvas.addEventListener('click', e => {
   if (!plugged) spawnParticles(mx, my, '#e94560', 4);
 });
 
+
+// ======================================================
+//  AUDIO
+// ======================================================
+let audioCtx = null;
+function playBlockSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch(e) {}
+}
 
 // ======================================================
 //  PARTICLES
@@ -827,6 +848,7 @@ function update() {
           state.score += 50 + state.level * 15;
           spawnParticles(hazard.x, hazard.y, '#2ecc71', 18);
           spawnParticles(playerPlugged.cx, playerPlugged.cy, '#f5c842', 10);
+          playBlockSound();
         } else {
           // Cheese body blocked it passively — token reward
           state.score += 2;
