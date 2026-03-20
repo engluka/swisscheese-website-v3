@@ -420,6 +420,7 @@ Swiss Cheese Defence v4 – Safe System Educational Game
       <li><strong style="color:var(--accent)">One crash = Game Over.</strong></li>
       <li>Survive each timed challenge to advance to the next level.</li>
       <li>4 challenges stand between you and Level 5.</li>
+      <li><strong style="color:var(--accent)">Level 5:</strong> no more challenges — holes shake permanently. No one survives forever.</li>
     </ul>
   </div>
   <div class="guide-col">
@@ -771,9 +772,10 @@ function update() {
 
     if (state.challengeTimer <= 0) passChallenge();
   } else {
-    // warmup hole shifting
+    // warmup hole shifting — level 5+ uses permanent fast shake
     state.holeShiftTimer++;
-    const shiftRate = Math.max(200 - state.level * 20, 90);
+    const isFinalLevel = state.level > LEVEL_CHALLENGES.length;
+    const shiftRate = isFinalLevel ? 20 : Math.max(200 - state.level * 20, 90);
     if (state.holeShiftTimer >= shiftRate) { shiftHoles(); state.holeShiftTimer = 0; }
   }
 
@@ -885,10 +887,13 @@ function updateWarmupHint() {
 function beginWarning() {
   const chIdx = state.challengesPassed;
   if (chIdx >= LEVEL_CHALLENGES.length) {
-    // Level 10+ — no more challenges, just keep playing
+    // Level 5 — no more challenges, but holes shake permanently
     state.warmupTimer = 0;
     state.warmupDuration = 99999;
-    document.getElementById('warmup-hint').style.display = 'none';
+    const hint = document.getElementById('warmup-hint');
+    hint.style.display = 'block';
+    hint.className = 'near';
+    hint.textContent = '⚠️ Level 5: holes are shaking — survive as long as you can!';
     return;
   }
   const ch = LEVEL_CHALLENGES[chIdx];
@@ -1036,7 +1041,7 @@ function showLevelUp() {
   } else {
     nextBox.style.display   = 'none';
     finalMsg.style.display  = 'block';
-    finalMsg.textContent    = '🏆 You completed all 4 challenges! Now survive as long as you can.';
+    finalMsg.textContent    = '🏆 All 4 challenges complete! Level 5: holes now shake permanently — how long can you last?';
   }
 
   showScreen('levelup-screen');
