@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swiss Cheese Defence v3 – Safe System Game</title>
+<style>
+  :root {
+    --cheese: #f5c842;
+    --cheese-dark: #d4a017;
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #e94560;
+    --green: #2ecc71;
+    --text: #eaeaea;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    background: var(--panel);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--cheese-dark);
+  }
+  header h1 { font-size: 1.4rem; color: var(--cheese); letter-spacing: 1px; }
+  header span { font-size: 0.8rem; color: #aaa; }
+
+  /* ——— HUD ——— */
+  #hud {
+    display: flex;
+    gap: 16px;
+    margin: 12px 0 4px;
+    font-size: 1rem;
+  }
+  .hud-box {
+    background: var(--panel);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 7px 16px;
+    text-align: center;
+  }
+  .hud-box .label { font-size: 0.68rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  .hud-box .val   { font-size: 1.4rem; font-weight: bold; color: var(--cheese); }
+
+  /* ——— Challenge progress bar ——— */
+  #challenge-bar {
+    display: none;
+    width: 900px;
+    max-width: 98vw;
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 6px;
+    border: 2px solid var(--cheese);
+  }
+  #challenge-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+  }
+  #challenge-bar-icon { font-size: 1.2rem; }
+  #challenge-bar-name { font-weight: bold; color: var(--cheese); font-size: 0.95rem; }
+  #challenge-bar-desc { color: #aaa; font-size: 0.8rem; flex: 1; }
+  #challenge-bar-time { font-weight: bold; color: var(--cheese); min-width: 32px; text-align: right; }
+  #challenge-bar-track {
+    height: 12px;
+    background: #0d1117;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  #challenge-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e94560, #f5c842, #2ecc71);
+    background-size: 300% 100%;
+    transition: width 0.25s linear, background-position 0.5s;
+  }
+
+  /* Warmup "next challenge" hint */
+  #warmup-hint {
+    display: none;
+    width: 900px;
+    max-width: 98vw;
+    text-align: center;
+    font-size: 0.78rem;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  #warmup-hint.near { color: var(--cheese); }
+
+  /* ——— Game wrap ——— */
+  #game-wrap {
+    position: relative;
+    width: 900px;
+    max-width: 98vw;
+  }
+  #game-canvas {
+    display: block;
+    width: 100%;
+    border-radius: 10px;
+    cursor: crosshair;
+    background: #0d1117;
+    border: 2px solid #333;
+  }
+
+  /* ——— Warning overlay (3-2-1 countdown) ——— */
+  #warning-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.78);
+    z-index: 20;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #warning-overlay.show { display: flex; }
+  #warning-icon-big { font-size: 3rem; }
+  #warning-name-big { font-size: 1.8rem; font-weight: bold; color: var(--cheese); letter-spacing: 2px; }
+  #warning-desc-big { font-size: 0.95rem; color: #ccc; }
+  #warning-num {
+    font-size: 5rem;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    transition: transform 0.1s;
+  }
+  #warning-go {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--green);
+    display: none;
+    letter-spacing: 4px;
+  }
+
+  /* ——— Pillar labels ——— */
+  #pillar-labels {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 6px;
+    padding: 0 60px;
+    width: 900px;
+    max-width: 98vw;
+  }
+  .pillar-label { font-size: 0.7rem; text-align: center; max-width: 120px; line-height: 1.3; }
+
+  /* ——— Tooltip ——— */
+  #tooltip {
+    display: none;
+    position: fixed;
+    background: #222;
+    border: 1px solid var(--cheese);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    max-width: 240px;
+    z-index: 999;
+    pointer-events: none;
+    line-height: 1.5;
+  }
+  #tooltip strong { color: var(--cheese); display: block; margin-bottom: 4px; }
+
+  /* ——— Info panel ——— */
+  #info-panel {
+    width: 900px;
+    max-width: 98vw;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin: 12px 0 20px;
+  }
+  .info-card {
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    border-left: 4px solid;
+    background: var(--panel);
+  }
+  .info-card strong { display: block; margin-bottom: 4px; font-size: 0.8rem; }
+
+  /* ——— Screens (modal overlays) ——— */
+  .screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 18px;
+    text-align: center;
+    padding: 20px;
+  }
+  .screen.active { display: flex; }
+  .screen h2 { font-size: 2.2rem; color: var(--cheese); }
+  .screen p  { max-width: 560px; line-height: 1.7; color: #ccc; }
+
+  .btn {
+    background: var(--cheese);
+    color: #1a1a2e;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 32px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: var(--cheese-dark); }
+  .btn.green { background: var(--green); color: #fff; }
+  .btn.green:hover { background: #27ae60; }
+
+  /* Challenge passed screen */
+  #passed-screen h2 { color: var(--green); }
+  .passed-check { font-size: 4rem; }
+  #passed-challenge-name { font-size: 1.2rem; color: var(--cheese); font-weight: bold; }
+  #passed-lesson { font-size: 0.92rem; background: var(--panel); border-left: 4px solid var(--green); padding: 12px 16px; border-radius: 6px; max-width: 520px; text-align: left; line-height: 1.7; }
+  #passed-stats { font-size: 0.88rem; color: #888; }
+
+  /* Level up screen */
+  #levelup-screen h2 { font-size: 2rem; }
+  .incoming-challenge {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 24px;
+    max-width: 480px;
+  }
+  .incoming-challenge .label { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .incoming-challenge .ch-name { font-size: 1.3rem; color: var(--cheese); font-weight: bold; margin-bottom: 4px; }
+  .incoming-challenge .ch-desc { color: #ccc; font-size: 0.88rem; }
+
+  /* Name input */
+  #name-input {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 2px solid var(--cheese);
+    background: #111;
+    color: white;
+    font-size: 1rem;
+    text-align: center;
+    width: 220px;
+  }
+
+  #leaderboard-btn {
+    margin-top: 8px;
+    background: transparent;
+    border: 1px solid var(--cheese);
+    color: var(--cheese);
+    border-radius: 6px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  #leaderboard-btn:hover { background: rgba(245,200,66,0.1); }
+
+  #lb-screen table { border-collapse: collapse; min-width: 360px; margin-top: 8px; }
+  #lb-screen th, #lb-screen td { padding: 8px 16px; border-bottom: 1px solid #333; text-align: left; }
+  #lb-screen th { color: var(--cheese); font-size: 0.78rem; text-transform: uppercase; }
+  #lb-screen .rank1 td { color: gold; font-weight: bold; }
+  #lb-screen .rank2 td { color: silver; }
+  #lb-screen .rank3 td { color: #cd7f32; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧀 Swiss Cheese Defence <span style="font-size:0.75rem;color:#888;font-weight:normal">v3</span></h1>
+  <span>Safe System Educational Game</span>
+</header>
+
+<div id="hud">
+  <div class="hud-box">
+    <div class="label">Score</div>
+    <div class="val" id="score-val">0</div>
+  </div>
+  <div class="hud-box">
+    <div class="label">Level</div>
+    <div class="val" id="level-val">1</div>
+  </div>
+  <div class="hud-box">
+    <div class="label">Blocked</div>
+    <div class="val" id="blocked-val">0</div>
+  </div>
+  <div class="hud-box">
+    <div class="label">Crashes</div>
+    <div class="val" id="crashes-val" style="color:var(--accent)">0</div>
+  </div>
+</div>
+
+<!-- Challenge progress bar -->
+<div id="challenge-bar">
+  <div id="challenge-bar-info">
+    <span id="challenge-bar-icon">⚡</span>
+    <span id="challenge-bar-name">SPEED SURGE</span>
+    <span id="challenge-bar-desc">Survive to level up!</span>
+    <span id="challenge-bar-time">20s</span>
+  </div>
+  <div id="challenge-bar-track">
+    <div id="challenge-bar-fill"></div>
+  </div>
+</div>
+
+<!-- Warmup hint -->
+<div id="warmup-hint">Next challenge approaching…</div>
+
+<!-- Game canvas + warning overlay -->
+<div id="game-wrap">
+  <canvas id="game-canvas" width="900" height="380"></canvas>
+
+  <!-- Warning countdown overlay -->
+  <div id="warning-overlay">
+    <div id="warning-icon-big">⚡</div>
+    <div id="warning-name-big">SPEED SURGE</div>
+    <div id="warning-desc-big">Hazards are twice as fast!</div>
+    <div id="warning-num">3</div>
+    <div id="warning-go">GO!</div>
+  </div>
+</div>
+
+<div id="pillar-labels"></div>
+<div id="info-panel"></div>
+<button id="leaderboard-btn">🏆 Leaderboard</button>
+<div id="tooltip"></div>
+
+<!-- ════════════ SCREENS ════════════ -->
+
+<!-- START -->
+<div class="screen active" id="start-screen">
+  <h2>🧀 Swiss Cheese Defence</h2>
+  <p>
+    Safety is built from five overlapping layers — each like a slice of Swiss cheese with holes.
+    A crash only happens when holes in <em>all five layers align at once</em>.<br><br>
+    <strong>Your job:</strong> click holes to plug them. Survive each <strong>timed challenge</strong>
+    to advance levels. <strong style="color:var(--accent)">One crash = Game Over.</strong>
+  </p>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <label style="font-size:0.9rem;color:#aaa">Enter your name:</label>
+    <input id="name-input" type="text" maxlength="20" placeholder="Your name" />
+  </div>
+  <button class="btn" id="start-btn">▶ Start Game</button>
+  <p style="font-size:0.78rem;color:#555">Hover over cheese slices for Safe System info • 9 challenges to reach Level 10</p>
+</div>
+
+<!-- CHALLENGE PASSED -->
+<div class="screen" id="passed-screen">
+  <div class="passed-check">✅</div>
+  <h2>Challenge Passed!</h2>
+  <div id="passed-challenge-name"></div>
+  <blockquote id="passed-lesson"></blockquote>
+  <div id="passed-stats"></div>
+  <button class="btn green" id="passed-continue-btn">Continue →</button>
+</div>
+
+<!-- LEVEL UP -->
+<div class="screen" id="levelup-screen">
+  <h2 id="lu-title">Level 2 🎉</h2>
+  <p id="lu-changes"></p>
+  <div class="incoming-challenge" id="lu-incoming" style="display:none">
+    <div class="label">Next challenge</div>
+    <div class="ch-name" id="lu-next-name"></div>
+    <div class="ch-desc" id="lu-next-desc"></div>
+  </div>
+  <div id="lu-final-msg" style="display:none;color:var(--green);font-weight:bold;font-size:1.1rem"></div>
+  <button class="btn" id="lu-btn">▶ Keep Playing</button>
+</div>
+
+<!-- GAME OVER -->
+<div class="screen" id="gameover-screen">
+  <h2>💥 Crash! Game Over.</h2>
+  <p id="go-msg"></p>
+  <p id="go-detail" style="font-size:0.85rem;color:#888"></p>
+  <button class="btn" id="retry-btn">▶ Play Again</button>
+  <button class="btn" id="lb-from-go-btn" style="background:transparent;border:1px solid var(--cheese);color:var(--cheese)">🏆 Leaderboard</button>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="screen" id="lb-screen">
+  <h2>🏆 Leaderboard</h2>
+  <table id="lb-table">
+    <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Level</th><th>Challenges</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button class="btn" id="lb-close-btn">Close</button>
+</div>
+
+<!-- ════════════ SCRIPT ════════════ -->
+<script>
+// ======================================================
+//  PILLARS
+// ======================================================
+const PILLARS = [
+  { name:"Safe Roads",      color:"#e74c3c", icon:"🛣️",
+    desc:"Roads and roadsides designed to be forgiving of human error. Includes medians, rumble strips, clear zones, and safe barriers.",
+    tip:"Safe Roads reduce crash severity by designing infrastructure that accounts for human mistakes." },
+  { name:"Safe Vehicles",   color:"#3498db", icon:"🚗",
+    desc:"Vehicles equipped with crash protection and avoidance technology: AEB, seatbelts, airbags, ESC.",
+    tip:"Safe Vehicles use technology to prevent crashes or protect occupants when a crash happens." },
+  { name:"Safe Speeds",     color:"#2ecc71", icon:"🚦",
+    desc:"Speed limits set according to road function and design. Speed cameras and enforcement keep drivers compliant.",
+    tip:"Safe Speeds recognise that kinetic energy rises with the square of speed — small reductions save many lives." },
+  { name:"Safe Road Users", color:"#f39c12", icon:"🧑‍🤝‍🧑",
+    desc:"Road users who are licensed, sober, unimpaired, and wearing seatbelts. Education and enforcement play key roles.",
+    tip:"Safe Road Users is the most variable and challenging layer — human behaviour is hard to control." },
+  { name:"Post-Crash Care", color:"#9b59b6", icon:"🚑",
+    desc:"Rapid emergency response, high-quality trauma care, and effective rehabilitation after a crash occurs.",
+    tip:"Post-Crash Care cannot prevent a crash but dramatically reduces fatalities when a crash does happen." },
+];
+
+// ======================================================
+//  LEVEL CHALLENGES  (9 challenges to reach Level 10)
+// ======================================================
+const LEVEL_CHALLENGES = [
+  {
+    name: "Speed Surge",     icon: "⚡",
+    desc: "Hazards are moving twice as fast!",
+    lesson: "High speed dramatically increases crash severity. Kinetic energy rises with the square of speed — doubling speed quadruples the energy released in a crash.",
+    duration: 20,
+    speedMult: 2.2,  spawnMult: 1.0, shiftFast: false, blind: false, extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "Swiss Avalanche", icon: "🌊",
+    desc: "Hazards pour in at triple the rate!",
+    lesson: "High traffic volume overwhelms safety systems. More vehicles mean more conflict points and less time for the system to respond to each hazard.",
+    duration: 20,
+    speedMult: 1.2,  spawnMult: 3.5, shiftFast: false, blind: false, extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "Shifting Cheese", icon: "🔀",
+    desc: "Holes shift position every second!",
+    lesson: "Safety gaps are not static. Driver fatigue, road wear, and system failures constantly create and close vulnerabilities. Complacency is dangerous.",
+    duration: 20,
+    speedMult: 1.3,  spawnMult: 1.5, shiftFast: true,  blind: false, extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "Blind Spot",      icon: "🌫️",
+    desc: "Visibility severely reduced!",
+    lesson: "Night, fog, and driver distraction reduce hazard detection time. Safe Roads and Safe Vehicles become even more critical when road users cannot see clearly.",
+    duration: 20,
+    speedMult: 1.4,  spawnMult: 1.5, shiftFast: false, blind: true,  extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "Double Jeopardy", icon: "💀",
+    desc: "Fast hazards AND extra holes open up!",
+    lesson: "When two layers fail together — e.g. poor road design AND speeding — risk does not add, it multiplies. This is why the Safe System requires all pillars to be strong.",
+    duration: 20,
+    speedMult: 1.8,  spawnMult: 2.0, shiftFast: false, blind: false, extraHoles: true,  smallHoles: false,
+  },
+  {
+    name: "Tiny Gaps",       icon: "🔬",
+    desc: "Holes are smaller — harder to plug!",
+    lesson: "Small, hard-to-detect vulnerabilities are the most dangerous. Many real crashes are caused by minor lapses no-one noticed — a worn tyre, a faded line, a 2 km/h speed excess.",
+    duration: 20,
+    speedMult: 1.5,  spawnMult: 1.5, shiftFast: false, blind: false, extraHoles: false, smallHoles: true,
+  },
+  {
+    name: "Rush Hour",       icon: "🚘",
+    desc: "Maximum traffic — fast and frequent!",
+    lesson: "Peak traffic periods are disproportionately dangerous. Higher vehicle density means less reaction time, more merging conflicts, and a reduced margin for error.",
+    duration: 25,
+    speedMult: 2.0,  spawnMult: 3.0, shiftFast: true,  blind: false, extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "System Overload", icon: "🆘",
+    desc: "Multiple safeguards fail at once!",
+    lesson: "Major incidents happen when several defensive layers are simultaneously compromised. This is the true Swiss Cheese alignment — no single fix prevents it; the whole system must be strong.",
+    duration: 25,
+    speedMult: 2.2,  spawnMult: 2.5, shiftFast: true,  blind: true,  extraHoles: false, smallHoles: false,
+  },
+  {
+    name: "Perfect Storm",   icon: "🌪️",
+    desc: "Every layer under maximum stress!",
+    lesson: "The Perfect Storm: all five pillars are stressed simultaneously. Real multi-fatality crashes often have this signature — nothing was left to catch the hazard. A Safe System prevents this by ensuring at least one layer is always strong enough.",
+    duration: 30,
+    speedMult: 2.5,  spawnMult: 3.5, shiftFast: true,  blind: true,  extraHoles: true,  smallHoles: true,
+  },
+];
+
+// ======================================================
+//  CANVAS & CONSTANTS
+// ======================================================
+const canvas = document.getElementById('game-canvas');
+const ctx    = canvas.getContext('2d');
+const W = 900, H = 380;
+const SLICE_COUNT  = 5;
+const SLICE_W      = 100;
+const ARROW_ZONE   = 60;
+const SLICE_HEIGHT = H - 60;
+const SLICE_TOP    = 30;
+
+function sliceX(i) {
+  const spacing = (W - ARROW_ZONE * 2) / SLICE_COUNT;
+  return ARROW_ZONE + spacing * i + spacing / 2;
+}
+
+// ======================================================
+//  STATE
+// ======================================================
+let state = {};
+
+function freshState(fromLevel) {
+  return {
+    running:       false,
+    score:         fromLevel ? state.score         : 0,
+    level:         fromLevel ? state.level         : 1,
+    blocked:       fromLevel ? state.blocked       : 0,
+    crashes:       0,
+    playerName:    fromLevel ? state.playerName    : 'Player',
+    challengesPassed: fromLevel ? state.challengesPassed : 0,
+
+    holes:     [],
+    hazards:   [],
+    particles: [],
+
+    // Phase: 'warmup' | 'warning' | 'challenge' | 'paused'
+    gamePhase:       'warmup',
+    warmupTimer:     0,
+    warmupDuration:  30 * 60,  // 30 s first warmup
+
+    warningTimer:    0,
+    warningDuration: 4 * 60,   // 4 s countdown (3,2,1,GO)
+
+    challengeTimer:    0,
+    challengeDuration: 0,
+    currentChallenge:  null,
+
+    spawnTimer:      0,
+    holeShiftTimer:  0,
+    frameCount:      0,
+  };
+}
+
+// ======================================================
+//  HOLES
+// ======================================================
+function baseHoleCount() { return 3 + state.level; }
+
+function initHoles() {
+  state.holes = [];
+  const n = baseHoleCount();
+  for (let s = 0; s < SLICE_COUNT; s++) {
+    for (let h = 0; h < n; h++) spawnHole(s);
+  }
+}
+
+function spawnHole(s) {
+  const ch   = state.currentChallenge;
+  const small = ch?.smallHoles;
+  const cx = sliceX(s) + randRange(-22, 22);
+  const cy = SLICE_TOP + 20 + Math.random() * (SLICE_HEIGHT - 40);
+  const r  = small
+    ? Math.max(randRange(6, 10), 6)
+    : Math.max(randRange(14, 22 - state.level * 0.4), 10);
+  state.holes.push({ sliceIdx: s, cx, cy, r, plugTimer: 0, maxPlug: 160 });
+}
+
+function shiftHoles() {
+  state.holes.forEach(h => {
+    if (h.plugTimer > 0) return;
+    h.cy = clamp(h.cy + randRange(-18, 18), SLICE_TOP + 20, SLICE_TOP + SLICE_HEIGHT - 20);
+    h.cx = clamp(h.cx + randRange(-8, 8),  sliceX(h.sliceIdx) - 28, sliceX(h.sliceIdx) + 28);
+  });
+}
+
+// ======================================================
+//  HAZARDS
+// ======================================================
+function currentSpeedMult() {
+  const ch = state.currentChallenge;
+  return state.gamePhase === 'challenge' && ch ? ch.speedMult : 1;
+}
+
+function spawnHazard() {
+  const base  = 1.2 + (state.level - 1) * 0.3;
+  const speed = base * currentSpeedMult();
+  state.hazards.push({
+    x: ARROW_ZONE - 12,
+    y: SLICE_TOP + 20 + Math.random() * (SLICE_HEIGHT - 40),
+    vx: speed, r: 8, active: true,
+    slicesPassed: 0, trail: [],
+    color: `hsl(${randRange(0, 25)},90%,55%)`,
+  });
+}
+
+// ======================================================
+//  CLICK — plug a hole
+// ======================================================
+canvas.addEventListener('click', e => {
+  if (!state.running || state.gamePhase === 'warning') return;
+  const rect  = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width, scaleY = H / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+  let plugged = false;
+  state.holes.forEach(h => {
+    if (h.plugTimer > 0) return;
+    if (Math.hypot(mx - h.cx, my - h.cy) < h.r + 8) {
+      h.plugTimer = h.maxPlug;
+      plugged = true;
+      spawnParticles(h.cx, h.cy, '#f5c842', 10);
+    }
+  });
+  if (!plugged) spawnParticles(mx, my, '#e94560', 4);
+});
+
+// Tooltip
+canvas.addEventListener('mousemove', e => {
+  const rect  = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width, scaleY = H / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+  const tip = document.getElementById('tooltip');
+  for (let i = 0; i < SLICE_COUNT; i++) {
+    if (Math.abs(mx - sliceX(i)) < SLICE_W / 2 + 5 && my > SLICE_TOP && my < SLICE_TOP + SLICE_HEIGHT) {
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 40) + 'px';
+      tip.innerHTML  = `<strong>${PILLARS[i].icon} ${PILLARS[i].name}</strong>${PILLARS[i].tip}`;
+      return;
+    }
+  }
+  tip.style.display = 'none';
+});
+canvas.addEventListener('mouseleave', () => { document.getElementById('tooltip').style.display = 'none'; });
+
+// ======================================================
+//  PARTICLES
+// ======================================================
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = randRange(1, 4);
+    state.particles.push({
+      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 40, maxLife: 40, color,
+    });
+  }
+}
+
+// ======================================================
+//  MAIN LOOP
+// ======================================================
+function gameLoop() {
+  if (!state.running) return;
+  requestAnimationFrame(gameLoop);
+  update();
+  render();
+}
+
+function update() {
+  state.frameCount++;
+
+  // Score ticks every second
+  if (state.frameCount % 60 === 0) {
+    state.score += state.level;
+    updateHUD();
+  }
+
+  // Plug timers
+  state.holes.forEach(h => { if (h.plugTimer > 0) h.plugTimer--; });
+
+  // ——— Phase logic ———
+  if (state.gamePhase === 'warmup') {
+    state.warmupTimer++;
+    updateWarmupHint();
+    if (state.warmupTimer >= state.warmupDuration) beginWarning();
+
+  } else if (state.gamePhase === 'warning') {
+    state.warningTimer--;
+    updateWarningUI();
+    if (state.warningTimer <= 0) beginChallenge();
+
+  } else if (state.gamePhase === 'challenge') {
+    state.challengeTimer--;
+    updateChallengeBar();
+
+    // Faster hole shifting during Shifting Cheese
+    state.holeShiftTimer++;
+    const shiftRate = state.currentChallenge?.shiftFast ? 30 : Math.max(200 - state.level * 20, 90);
+    if (state.holeShiftTimer >= shiftRate) { shiftHoles(); state.holeShiftTimer = 0; }
+
+    if (state.challengeTimer <= 0) passChallenge();
+  } else {
+    // warmup hole shifting
+    state.holeShiftTimer++;
+    const shiftRate = Math.max(200 - state.level * 20, 90);
+    if (state.holeShiftTimer >= shiftRate) { shiftHoles(); state.holeShiftTimer = 0; }
+  }
+
+  // ——— Spawn hazards ———
+  const baseRate = Math.max(65 - state.level * 5, 20);
+  const spawnMult = state.gamePhase === 'challenge' && state.currentChallenge
+    ? state.currentChallenge.spawnMult : 1;
+  const spawnRate = Math.max(Math.floor(baseRate / spawnMult), 8);
+
+  state.spawnTimer++;
+  if (state.spawnTimer >= spawnRate) { spawnHazard(); state.spawnTimer = 0; }
+
+  // ——— Move hazards ———
+  state.hazards.forEach(hazard => {
+    if (!hazard.active) return;
+    hazard.trail.push({ x: hazard.x, y: hazard.y });
+    if (hazard.trail.length > 8) hazard.trail.shift();
+    hazard.x += hazard.vx;
+
+    for (let s = 0; s < SLICE_COUNT; s++) {
+      if (hazard.slicesPassed > s) continue;
+      const sx = sliceX(s);
+      if (hazard.x + hazard.r < sx - SLICE_W / 2) continue;
+      if (hazard.x - hazard.r > sx + SLICE_W / 2) { hazard.slicesPassed = s + 1; continue; }
+
+      const holeHit = state.holes.find(h =>
+        h.sliceIdx === s && h.plugTimer === 0 && Math.abs(hazard.y - h.cy) < h.r
+      );
+      if (!holeHit) {
+        // Blocked!
+        state.blocked++;
+        state.score += 20 + state.level * 5;
+        spawnParticles(hazard.x, hazard.y, '#2ecc71', 12);
+        hazard.active = false;
+        updateHUD();
+        return;
+      }
+    }
+
+    // Passed all slices → crash
+    if (hazard.slicesPassed >= SLICE_COUNT && hazard.x > W - ARROW_ZONE) {
+      onCrash(hazard); hazard.active = false;
+    }
+    if (hazard.x > W + 20) hazard.active = false;
+  });
+
+  // Cleanup
+  state.hazards   = state.hazards.filter(h => h.active);
+  state.particles = state.particles.filter(p => p.life > 0);
+  state.particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.vx *= 0.95; p.life--;
+  });
+}
+
+// ======================================================
+//  CRASH
+// ======================================================
+function onCrash(hazard) {
+  state.crashes++;
+  spawnParticles(hazard.x, hazard.y, '#e94560', 30);
+  updateHUD();
+  const el = document.getElementById('game-wrap');
+  el.style.boxShadow = '0 0 50px 12px rgba(233,69,96,0.9)';
+  setTimeout(() => { el.style.boxShadow = 'none'; }, 500);
+  setTimeout(() => gameOver(), 450);
+  state.running = false;
+}
+
+// ======================================================
+//  WARMUP HINT UI
+// ======================================================
+function updateWarmupHint() {
+  if (state.level > LEVEL_CHALLENGES.length) return;
+  const el    = document.getElementById('warmup-hint');
+  const pct   = state.warmupTimer / state.warmupDuration;
+  const chIdx = state.challengesPassed;
+  if (chIdx >= LEVEL_CHALLENGES.length) { el.style.display = 'none'; return; }
+  const ch = LEVEL_CHALLENGES[chIdx];
+
+  if (pct < 0.5) {
+    el.style.display = 'none';
+  } else if (pct < 0.8) {
+    el.style.display = 'block';
+    el.className = '';
+    el.textContent = `Next challenge: ${ch.icon} ${ch.name}`;
+  } else {
+    el.style.display = 'block';
+    el.className = 'near';
+    const secsLeft = Math.ceil((state.warmupDuration - state.warmupTimer) / 60);
+    el.textContent = `⚠️ ${ch.icon} ${ch.name} in ${secsLeft}s — get ready!`;
+  }
+}
+
+// ======================================================
+//  WARNING PHASE (4-second countdown)
+// ======================================================
+function beginWarning() {
+  const chIdx = state.challengesPassed;
+  if (chIdx >= LEVEL_CHALLENGES.length) {
+    // Level 10+ — no more challenges, just keep playing
+    state.warmupTimer = 0;
+    state.warmupDuration = 99999;
+    document.getElementById('warmup-hint').style.display = 'none';
+    return;
+  }
+  const ch = LEVEL_CHALLENGES[chIdx];
+  state.gamePhase      = 'warning';
+  state.warningTimer   = state.warningDuration;
+  state.currentChallenge = ch;
+
+  // Populate overlay
+  document.getElementById('warning-icon-big').textContent  = ch.icon;
+  document.getElementById('warning-name-big').textContent  = ch.name.toUpperCase();
+  document.getElementById('warning-desc-big').textContent  = ch.desc;
+  document.getElementById('warning-num').style.display     = 'block';
+  document.getElementById('warning-go').style.display      = 'none';
+  document.getElementById('warning-num').textContent       = '3';
+  document.getElementById('warning-overlay').classList.add('show');
+  document.getElementById('warmup-hint').style.display     = 'none';
+}
+
+function updateWarningUI() {
+  const numEl = document.getElementById('warning-num');
+  const goEl  = document.getElementById('warning-go');
+  const frac  = state.warningTimer / state.warningDuration;
+
+  if (frac > 0.75)      { numEl.textContent = '3'; numEl.style.color = '#e94560'; }
+  else if (frac > 0.5)  { numEl.textContent = '2'; numEl.style.color = '#f39c12'; }
+  else if (frac > 0.25) { numEl.textContent = '1'; numEl.style.color = '#f5c842'; }
+  else {
+    numEl.style.display = 'none';
+    goEl.style.display  = 'block';
+  }
+}
+
+// ======================================================
+//  CHALLENGE PHASE
+// ======================================================
+function beginChallenge() {
+  const ch = state.currentChallenge;
+  state.gamePhase       = 'challenge';
+  state.challengeTimer  = ch.duration * 60;
+  state.challengeDuration = ch.duration * 60;
+  state.holeShiftTimer  = 0;
+
+  // Hide warning overlay
+  document.getElementById('warning-overlay').classList.remove('show');
+
+  // Extra holes during Double Jeopardy / Perfect Storm
+  if (ch.extraHoles) {
+    for (let s = 0; s < SLICE_COUNT; s++) spawnHole(s);
+  }
+
+  // Smaller holes during Tiny Gaps / Perfect Storm
+  if (ch.smallHoles) {
+    state.holes.forEach(h => { h.r = Math.max(h.r * 0.6, 6); });
+  }
+
+  // Show challenge bar
+  const bar = document.getElementById('challenge-bar');
+  bar.style.display = 'block';
+  bar.style.borderColor = '#e94560';
+  document.getElementById('challenge-bar-icon').textContent = ch.icon;
+  document.getElementById('challenge-bar-name').textContent = ch.name.toUpperCase();
+  document.getElementById('challenge-bar-desc').textContent = ch.desc;
+  updateChallengeBar();
+}
+
+function updateChallengeBar() {
+  const fill = document.getElementById('challenge-bar-fill');
+  const timeEl = document.getElementById('challenge-bar-time');
+  const bar    = document.getElementById('challenge-bar');
+
+  const pct  = 1 - state.challengeTimer / state.challengeDuration;
+  const secsLeft = Math.ceil(state.challengeTimer / 60);
+  fill.style.width = (pct * 100).toFixed(1) + '%';
+  timeEl.textContent = secsLeft + 's';
+
+  // Colour the bar border as it nears completion
+  if (pct > 0.7) {
+    bar.style.borderColor = '#2ecc71';
+    fill.style.backgroundPosition = '100% 0';
+  } else if (pct > 0.35) {
+    bar.style.borderColor = '#f5c842';
+    fill.style.backgroundPosition = '50% 0';
+  }
+}
+
+// ======================================================
+//  CHALLENGE PASSED
+// ======================================================
+function passChallenge() {
+  state.running = false;
+  state.gamePhase = 'paused';
+  document.getElementById('challenge-bar').style.display = 'none';
+
+  const ch = state.currentChallenge;
+  document.getElementById('passed-challenge-name').textContent = `${ch.icon} ${ch.name}`;
+  document.getElementById('passed-lesson').textContent         = ch.lesson;
+  document.getElementById('passed-stats').textContent =
+    `Score: ${state.score} | Hazards blocked: ${state.blocked}`;
+  document.getElementById('passed-continue-btn').textContent =
+    `Continue to Level ${state.level + 1} →`;
+
+  // Flash canvas green briefly
+  spawnParticles(W/2, H/2, '#2ecc71', 40);
+  const el = document.getElementById('game-wrap');
+  el.style.boxShadow = '0 0 50px 12px rgba(46,204,113,0.8)';
+  setTimeout(() => { el.style.boxShadow = 'none'; }, 600);
+
+  state.challengesPassed++;
+  state.level++;
+
+  showScreen('passed-screen');
+}
+
+// ======================================================
+//  LEVEL UP (shown after challenge passed screen)
+// ======================================================
+function showLevelUp() {
+  const chIdx = state.challengesPassed; // next challenge index
+  document.getElementById('lu-title').textContent = `Level ${state.level} 🎉`;
+
+  const diffMsgs = [
+    "Holes are slightly more numerous now.",
+    "Hazards spawn a little faster.",
+    "The cheese shifts more frequently.",
+    "More holes and faster hazards.",
+    "The system is under serious pressure.",
+    "Every layer is weakening.",
+    "Stay focused — errors are fatal.",
+    "You're in the danger zone.",
+    "Maximum difficulty. You've earned it.",
+    "You've mastered the Safe System. Survive!",
+  ];
+  document.getElementById('lu-changes').textContent =
+    diffMsgs[Math.min(state.level - 2, diffMsgs.length - 1)];
+
+  const nextBox = document.getElementById('lu-incoming');
+  const finalMsg = document.getElementById('lu-final-msg');
+
+  if (chIdx < LEVEL_CHALLENGES.length) {
+    const next = LEVEL_CHALLENGES[chIdx];
+    nextBox.style.display   = 'block';
+    finalMsg.style.display  = 'none';
+    document.getElementById('lu-next-name').textContent = `${next.icon} ${next.name}`;
+    document.getElementById('lu-next-desc').textContent = next.desc;
+  } else {
+    nextBox.style.display   = 'none';
+    finalMsg.style.display  = 'block';
+    finalMsg.textContent    = '🏆 You completed all 9 challenges! Now survive as long as you can.';
+  }
+
+  showScreen('levelup-screen');
+}
+
+// ======================================================
+//  GAME OVER
+// ======================================================
+function gameOver() {
+  saveScore();
+  const phase = state.gamePhase === 'challenge'
+    ? `during the "${state.currentChallenge.name}" challenge`
+    : 'during normal play';
+  document.getElementById('go-msg').textContent =
+    `You reached Level ${state.level} and scored ${state.score} points, blocking ${state.blocked} hazards.`;
+  document.getElementById('go-detail').textContent =
+    `The crash occurred ${phase}. You completed ${state.challengesPassed} challenge${state.challengesPassed !== 1 ? 's' : ''}.`;
+  document.getElementById('challenge-bar').style.display = 'none';
+  document.getElementById('warmup-hint').style.display   = 'none';
+  document.getElementById('warning-overlay').classList.remove('show');
+  showScreen('gameover-screen');
+}
+
+// ======================================================
+//  LEADERBOARD
+// ======================================================
+function saveScore() {
+  const lb = getLeaderboard();
+  lb.push({
+    name: state.playerName,
+    score: state.score,
+    level: state.level,
+    challenges: state.challengesPassed,
+  });
+  lb.sort((a, b) => b.score - a.score);
+  localStorage.setItem('swisscheese_v3_lb', JSON.stringify(lb.slice(0, 10)));
+}
+
+function getLeaderboard() {
+  try { return JSON.parse(localStorage.getItem('swisscheese_v3_lb')) || []; }
+  catch { return []; }
+}
+
+function renderLeaderboard() {
+  const lb = getLeaderboard();
+  const tbody = document.querySelector('#lb-table tbody');
+  if (!lb.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;padding:20px">No scores yet!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lb.map((e, i) =>
+    `<tr class="${i===0?'rank1':i===1?'rank2':i===2?'rank3':''}">
+      <td>${i+1}</td><td>${escHtml(e.name)}</td>
+      <td>${e.score}</td><td>${e.level}</td><td>${e.challenges}</td>
+    </tr>`
+  ).join('');
+}
+
+// ======================================================
+//  RENDERING
+// ======================================================
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Blind challenge overlay
+  if (state.gamePhase === 'challenge' && state.currentChallenge?.blind) {
+    const grad = ctx.createLinearGradient(ARROW_ZONE, 0, W - ARROW_ZONE, 0);
+    grad.addColorStop(0,    'rgba(0,0,0,0)');
+    grad.addColorStop(0.3,  'rgba(0,0,0,0.65)');
+    grad.addColorStop(0.7,  'rgba(0,0,0,0.65)');
+    grad.addColorStop(1,    'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  for (let i = 0; i < SLICE_COUNT; i++) drawSlice(i);
+  drawArrows();
+  state.hazards.forEach(drawHazard);
+
+  // Particles
+  state.particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle   = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4 * (p.life / p.maxLife), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawSlice(i) {
+  const sx = sliceX(i);
+  const p  = PILLARS[i];
+  ctx.shadowColor = p.color; ctx.shadowBlur = 8;
+  ctx.fillStyle = '#d4a017';
+  roundRect(ctx, sx - SLICE_W/2, SLICE_TOP, SLICE_W, SLICE_HEIGHT, 12); ctx.fill();
+  const grad = ctx.createLinearGradient(sx-SLICE_W/2, SLICE_TOP, sx+SLICE_W/2, SLICE_TOP+SLICE_HEIGHT);
+  grad.addColorStop(0,   'rgba(255,220,80,0.5)');
+  grad.addColorStop(0.5, 'rgba(255,200,40,0.1)');
+  grad.addColorStop(1,   'rgba(200,140,0,0.3)');
+  ctx.fillStyle = grad;
+  roundRect(ctx, sx - SLICE_W/2, SLICE_TOP, SLICE_W, SLICE_HEIGHT, 12); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = p.color; ctx.lineWidth = 3;
+  roundRect(ctx, sx - SLICE_W/2, SLICE_TOP, SLICE_W, SLICE_HEIGHT, 12); ctx.stroke();
+  ctx.fillStyle = '#1a1a2e'; ctx.font = 'bold 18px Segoe UI Emoji'; ctx.textAlign = 'center';
+  ctx.fillText(p.icon, sx, SLICE_TOP + 22);
+  ctx.font = 'bold 9px Segoe UI'; ctx.fillStyle = '#1a1a2e';
+  p.name.split(' ').forEach((w, wi) => ctx.fillText(w, sx, SLICE_TOP + SLICE_HEIGHT - 22 + wi * 11));
+  state.holes.filter(h => h.sliceIdx === i).forEach(drawHole);
+}
+
+function drawHole(h) {
+  if (h.plugTimer > 0) {
+    const progress = 1 - h.plugTimer / h.maxPlug;
+    ctx.fillStyle = `rgba(245,200,66,${0.9 - progress * 0.6})`;
+    ctx.beginPath(); ctx.arc(h.cx, h.cy, h.r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(h.cx, h.cy, h.r+4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1-progress));
+    ctx.stroke();
+    return;
+  }
+  ctx.fillStyle = '#3a2a0a';
+  ctx.beginPath(); ctx.arc(h.cx, h.cy, h.r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); ctx.arc(h.cx+2, h.cy+2, h.r-3, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(233,69,96,0.4)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(h.cx, h.cy, h.r+2, 0, Math.PI*2); ctx.stroke();
+}
+
+function drawHazard(h) {
+  h.trail.forEach((t, i) => {
+    ctx.globalAlpha = (i / h.trail.length) * 0.4;
+    ctx.fillStyle   = h.color;
+    ctx.beginPath(); ctx.arc(t.x, t.y, h.r*(i/h.trail.length), 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = h.color; ctx.shadowColor = h.color; ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.font = '10px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.fillText('☠', h.x, h.y + 4);
+}
+
+function drawArrows() {
+  ctx.fillStyle = '#e94560'; ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('HAZARD', 30, H/2-10); ctx.fillText('→', 30, H/2+10);
+  ctx.fillStyle = '#555';
+  ctx.fillText('CRASH',  W-30, H/2-10); ctx.fillText('ZONE', W-30, H/2+5);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
+}
+
+// ======================================================
+//  HUD
+// ======================================================
+function updateHUD() {
+  document.getElementById('score-val').textContent   = state.score;
+  document.getElementById('level-val').textContent   = state.level;
+  document.getElementById('blocked-val').textContent = state.blocked;
+  document.getElementById('crashes-val').textContent = state.crashes;
+}
+
+function buildPillarUI() {
+  document.getElementById('pillar-labels').innerHTML = PILLARS.map(p =>
+    `<div class="pillar-label" style="color:${p.color}">${p.icon} <strong>${p.name}</strong></div>`
+  ).join('');
+  document.getElementById('info-panel').innerHTML = PILLARS.map(p =>
+    `<div class="info-card" style="border-color:${p.color}">
+      <strong style="color:${p.color}">${p.icon} ${p.name}</strong>${p.desc}
+    </div>`
+  ).join('');
+}
+
+// ======================================================
+//  SCREEN MANAGEMENT
+// ======================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function hideAllScreens() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+}
+
+// ======================================================
+//  GAME START / RESUME
+// ======================================================
+function startGame(fromLevel) {
+  state = freshState(fromLevel);
+  if (!fromLevel) {
+    state.playerName = document.getElementById('name-input').value.trim() || 'Player';
+  }
+  state.warmupDuration = Math.max(20 * 60, 30 * 60 - state.challengesPassed * 2 * 60);
+  initHoles();
+  updateHUD();
+  hideAllScreens();
+  document.getElementById('challenge-bar').style.display  = 'none';
+  document.getElementById('warmup-hint').style.display    = 'none';
+  document.getElementById('warning-overlay').classList.remove('show');
+  state.running = true;
+  requestAnimationFrame(gameLoop);
+}
+
+function resumeAfterPassed() {
+  // Show level up screen first
+  showLevelUp();
+}
+
+function resumeAfterLevelUp() {
+  // Reset for new level
+  state.warmupDuration = Math.max(20 * 60, 30 * 60 - state.challengesPassed * 2 * 60);
+  state.warmupTimer    = 0;
+  state.gamePhase      = 'warmup';
+  state.currentChallenge = null;
+  state.spawnTimer     = 0;
+  state.holeShiftTimer = 0;
+  initHoles();
+  updateHUD();
+  hideAllScreens();
+  state.running = true;
+  requestAnimationFrame(gameLoop);
+}
+
+// ======================================================
+//  EVENT LISTENERS
+// ======================================================
+document.getElementById('start-btn').addEventListener('click', () => startGame(false));
+document.getElementById('retry-btn').addEventListener('click', () => startGame(false));
+document.getElementById('passed-continue-btn').addEventListener('click', resumeAfterPassed);
+document.getElementById('lu-btn').addEventListener('click', resumeAfterLevelUp);
+
+document.getElementById('leaderboard-btn').addEventListener('click', () => {
+  renderLeaderboard(); showScreen('lb-screen');
+});
+document.getElementById('lb-close-btn').addEventListener('click', () => {
+  if (state.running) hideAllScreens(); else showScreen('start-screen');
+});
+document.getElementById('lb-from-go-btn').addEventListener('click', () => {
+  renderLeaderboard(); showScreen('lb-screen');
+});
+
+// ======================================================
+//  UTIL
+// ======================================================
+function randRange(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ======================================================
+//  INIT
+// ======================================================
+buildPillarUI();
+state = freshState(false);
+updateHUD();
+
+// Static preview on start screen
+(function drawPreview() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+  state.holes = [];
+  for (let i = 0; i < SLICE_COUNT; i++) { for (let h = 0; h < 4; h++) spawnHole(i); }
+  for (let i = 0; i < SLICE_COUNT; i++) drawSlice(i);
+  drawArrows();
+})();
+</script>
+</body>
+</html>
