@@ -1,5 +1,5 @@
 <!--
-  Swiss Cheese Defence v4 – Safe System Educational Game
+Swiss Cheese Defence v4 – Safe System Educational Game
   © 2026 Dr. Anteneh Afework Mekonnen. All rights reserved.
 -->
 <!DOCTYPE html>
@@ -576,7 +576,7 @@ function spawnHole(s) {
   const r  = small
     ? Math.max(randRange(6, 10), 6)
     : Math.max(randRange(14, 22 - state.level * 0.4), 10);
-  state.holes.push({ sliceIdx: s, cx, cy, r, plugTimer: 0, maxPlug: 160 });
+  state.holes.push({ sliceIdx: s, cx, cy, r, plugTimer: 0, maxPlug: 160, pluggedByPlayer: false });
 }
 
 function shiftHoles() {
@@ -621,6 +621,7 @@ canvas.addEventListener('click', e => {
     if (h.plugTimer > 0) return;
     if (Math.hypot(mx - h.cx, my - h.cy) < h.r + 8) {
       h.plugTimer = h.maxPlug;
+      h.pluggedByPlayer = true;
       plugged = true;
       spawnParticles(h.cx, h.cy, '#f5c842', 10);
     }
@@ -682,7 +683,7 @@ function update() {
   }
 
   // Plug timers
-  state.holes.forEach(h => { if (h.plugTimer > 0) h.plugTimer--; });
+  state.holes.forEach(h => { if (h.plugTimer > 0) { h.plugTimer--; if (h.plugTimer === 0) h.pluggedByPlayer = false; } });
 
   // ——— Phase logic ———
   if (state.gamePhase === 'warmup') {
@@ -740,8 +741,19 @@ function update() {
       if (!holeHit) {
         // Blocked!
         state.blocked++;
-        state.score += 20 + state.level * 5;
-        spawnParticles(hazard.x, hazard.y, '#2ecc71', 12);
+        const playerPlugged = state.holes.find(h =>
+          h.sliceIdx === s && h.pluggedByPlayer && Math.abs(hazard.y - h.cy) < h.r
+        );
+        if (playerPlugged) {
+          // Player actively plugged this hole — big reward
+          state.score += 50 + state.level * 15;
+          spawnParticles(hazard.x, hazard.y, '#2ecc71', 18);
+          spawnParticles(playerPlugged.cx, playerPlugged.cy, '#f5c842', 10);
+        } else {
+          // Cheese body blocked it passively — token reward
+          state.score += 2;
+          spawnParticles(hazard.x, hazard.y, '#2ecc71', 6);
+        }
         hazard.active = false;
         updateHUD();
         return;
