@@ -285,13 +285,90 @@ Swiss Cheese Defence v4 – Safe System Educational Game
   #lb-screen .rank1 td { color: gold; font-weight: bold; }
   #lb-screen .rank2 td { color: silver; }
   #lb-screen .rank3 td { color: #cd7f32; }
+
+  /* ——— How to Play & Scoring ——— */
+  #guide-panel {
+    width: 900px;
+    max-width: 98vw;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 18px 0 8px;
+  }
+  .guide-col {
+    background: var(--panel);
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .guide-col h3 {
+    font-size: 0.95rem;
+    color: var(--cheese);
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .guide-col ul {
+    padding-left: 18px;
+    font-size: 0.8rem;
+    color: #ccc;
+    line-height: 1.9;
+  }
+  .score-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .score-table thead th {
+    color: #888;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    padding: 0 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .score-table tbody td {
+    padding: 8px 6px;
+    color: #ccc;
+    border-bottom: 1px solid #1e1e38;
+    vertical-align: middle;
+  }
+  .score-table tbody tr:last-child td { border-bottom: none; }
+  .tag {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag.active   { background: rgba(46,204,113,0.18); color: var(--green); }
+  .tag.passive  { background: rgba(170,170,170,0.12); color: #999; }
+  .tag.survival { background: rgba(245,200,66,0.15); color: var(--cheese); }
+  .pts { font-weight: bold; white-space: nowrap; text-align: right; }
+  .active-pts   { color: var(--green); }
+  .passive-pts  { color: #888; }
+  .survival-pts { color: var(--cheese); }
+  .pts-sub { font-size: 0.68rem; font-weight: normal; color: #888; }
+  .guide-tip {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: #555;
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
 
 <header>
   <h1>🧀 Swiss Cheese Defence <span style="font-size:0.75rem;color:#888;font-weight:normal">v4</span></h1>
-  <span>Safe System Educational Game</span>
+  <div style="text-align:right">
+    <span>Safe System Educational Game</span><br>
+    <span style="font-size:0.7rem;color:#666">&copy; 2026 Dr. Anteneh Afework Mekonnen. All rights reserved.</span>
+  </div>
 </header>
 
 <div id="hud">
@@ -346,6 +423,44 @@ Swiss Cheese Defence v4 – Safe System Educational Game
 <div id="pillar-labels"></div>
 <div id="info-panel"></div>
 <button id="leaderboard-btn">🏆 Leaderboard</button>
+
+<!-- ════════════ HOW TO PLAY & SCORING ════════════ -->
+<div id="guide-panel">
+  <div class="guide-col">
+    <h3>🎮 How to Play</h3>
+    <ul>
+      <li>Hazards (red dots) travel left → right through five cheese slices.</li>
+      <li><strong>Click a hole</strong> to plug it before a hazard passes through.</li>
+      <li>A crash happens only when holes in <em>all five layers align</em> and a hazard gets through.</li>
+      <li><strong style="color:var(--accent)">One crash = Game Over.</strong></li>
+      <li>Survive each timed challenge to advance to the next level.</li>
+      <li>9 challenges stand between you and Level 10.</li>
+      <li>Hover over a cheese slice to read its Safe System description.</li>
+    </ul>
+  </div>
+  <div class="guide-col">
+    <h3>⭐ Scoring Rules</h3>
+    <table class="score-table">
+      <thead><tr><th>Action</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="tag active">Active block</span> You plugged the hole that stopped a hazard</td>
+          <td class="pts active-pts">+50 <span class="pts-sub">+ level × 15</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag passive">Passive block</span> Cheese body stopped hazard (no hole there)</td>
+          <td class="pts passive-pts">+2</td>
+        </tr>
+        <tr>
+          <td><span class="tag survival">Survival</span> Staying alive each second</td>
+          <td class="pts survival-pts">+level <span class="pts-sub">per sec</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="guide-tip">Tip: active blocks scale with level — the higher you climb, the more each plug is worth.</p>
+  </div>
+</div>
+
 <div id="tooltip"></div>
 
 <!-- ════════════ SCREENS ════════════ -->
